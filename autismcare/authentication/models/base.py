@@ -17,7 +17,14 @@ class AutenticationUser(AbstractUser):
         return self.username
 
 class Employee(AutenticationUser):
-    role = models.CharField(max_length=50)
+    ROLE = [
+        ("physiotherapist", "Fisioterapeuta"),
+        ("psychologist", "Psicólogo"),
+        ("pedagogue", "Pedagogo"),
+        ("assistant", "Assistente"),
+        ("receptionist", "Recepcionista")
+    ]
+    role = models.CharField(max_length=50, choices=ROLE)
     salary = models.DecimalField(max_digits=10, decimal_places=2)
     admission_date = models.DateField()
 
