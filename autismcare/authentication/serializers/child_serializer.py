@@ -1,9 +1,9 @@
 from rest_framework import serializers
 from authentication.models.child import Child
-from .parent_serializer import ParentSerializer
+from .base_serializer import AutenticationUserSerializer
 
 class ChildSerializer(serializers.ModelSerializer):
-    parent = ParentSerializer(read_only=True)
+    parent = AutenticationUserSerializer(source='parent.user', read_only=True)
 
     class Meta:
         model = Child

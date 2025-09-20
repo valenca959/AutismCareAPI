@@ -21,5 +21,5 @@ class Parent(models.Model):
 
     def save(self, *args, **kwargs):
         if hasattr(self.user, 'employee'):
-            raise ValueError("Um usuário não pode ser tanto Parent quanto Employee.")
+            raise ValueError("Um usuário não pode ser tanto responsavel quanto paciente.")
         super().save(*args, **kwargs)
