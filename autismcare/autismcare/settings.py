@@ -31,7 +31,9 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'phonenumber_field',
 
-    'authentication',
+    'users',
+    'patients',
+    'medical',
     
 ]
 
@@ -118,7 +120,7 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-AUTH_USER_MODEL = "authentication.AutenticationUser"
+AUTH_USER_MODEL = AUTH_USER_MODEL = "users.AutenticationUser"
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
