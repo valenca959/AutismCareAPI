@@ -10,6 +10,6 @@ class AddressViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
 class AutenticationUserViewSet(viewsets.ModelViewSet):
-    queryset = AutenticationUser.objects.all()
+    queryset = AutenticationUser.objects.select_related('address')
     serializer_class = AutenticationUserSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
