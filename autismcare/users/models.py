@@ -1,9 +1,42 @@
 # autismcare/users/models.py
 
 from django.db import models
-from django.contrib.auth.models import AbstractUser, Permission
+from django.contrib.auth.models import AbstractUser, Permission, BaseUserManager
 from django.core.validators import RegexValidator, MinValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
+
+# ADICIONE ESTA NOVA CLASSE
+class CustomUserManager(BaseUserManager):
+    """
+    Gestor de modelo de utilizador personalizado onde o email é o identificador único
+    para autenticação em vez de nomes de utilizador.
+    """
+    def create_user(self, email, password, **extra_fields):
+        """
+        Cria e guarda um utilizador com o email e palavra-passe fornecidos.
+        """
+        if not email:
+            raise ValueError('O Email deve ser definido')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password, **extra_fields):
+        """
+        Cria e guarda um super-utilizador com o email e palavra-passe fornecidos.
+        """
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('O super-utilizador deve ter is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('O super-utilizador deve ter is_superuser=True.')
+        return self.create_user(email, password, **extra_fields)
+
 
 class Address(models.Model):
     city = models.CharField(max_length=50)
@@ -22,9 +55,12 @@ class Address(models.Model):
         verbose_name = "Endereço"
         verbose_name_plural = "Endereços"
 
+
 class AutenticationUser(AbstractUser):
+    # O username padrão não é mais necessário
+    username = None
     email = models.EmailField(unique=True)
-    username = models.CharField(max_length=150, unique=True, blank=True)
+    
     address = models.OneToOneField(
         Address,
         on_delete=models.SET_NULL,
@@ -43,16 +79,20 @@ class AutenticationUser(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Define o campo de login
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['cpf']
 
-    def save(self, *args, **kwargs):
-        if not self.username:
-            self.username = self.email
-        super().save(*args, **kwargs)
+    # ASSOCIE O NOVO GESTOR
+    objects = CustomUserManager()
 
     def __str__(self):
         return self.email
+    
+    # Esta função pode ser simplificada ou removida se não for usada,
+    # já que o Django já não se baseia em 'username'.
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
     def get_user_type(self):
         if hasattr(self, 'employee'):
@@ -67,7 +107,7 @@ class AutenticationUser(AbstractUser):
             models.Index(fields=['cpf']),
         ]
 
-
+# O resto dos modelos (Role, Employee) permanece igual abaixo...
 class Role(models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name="Nome da Role")
     description = models.TextField(blank=True, null=True, verbose_name="Descrição")
@@ -128,4 +168,4 @@ class Employee(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.role.name if self.role else 'Sem função'}"
+        return f"{self.user.email} - {self.role.name if self.role else 'Sem função'}"
