@@ -4,6 +4,6 @@ from authentication.models.employee import Employee
 from authentication.serializers.employee_serializer import EmployeeSerializer
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    queryset = Employee.objects.all()
+    queryset = Employee.objects.select_related('user', 'role')
     serializer_class = EmployeeSerializer
     permission_classes = [IsAdminUser]

@@ -14,11 +14,11 @@ class AllergyViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsEmployeeOrReadOnly]
 
 class MedicalRecordViewSet(viewsets.ModelViewSet):
-    queryset = MedicalRecord.objects.all()
+    queryset = MedicalRecord.objects.select_related('child__parent__user').prefetch_related('allergies')
     serializer_class = MedicalRecordSerializer
     permission_classes = [IsAuthenticated, IsEmployeeOrReadOnly]
 
 class MedicalHistoryViewSet(viewsets.ModelViewSet):
-    queryset = MedicalHistory.objects.all()
+    queryset = MedicalHistory.objects.select_related('child__parent__user', 'created_by')
     serializer_class = MedicalHistorySerializer
     permission_classes = [IsAuthenticated, IsEmployeeOrReadOnly]
