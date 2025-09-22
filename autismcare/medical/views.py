@@ -20,3 +20,10 @@ class MedicalHistoryViewSet(viewsets.ModelViewSet):
     queryset = MedicalHistory.objects.select_related('child__parent__user', 'created_by')
     serializer_class = MedicalHistorySerializer
     permission_classes = [IsAuthenticated, IsEmployeeOrReadOnly]
+
+    # ADICIONE ESTE MÉTODO
+    def perform_create(self, serializer):
+        """
+        Associa o utilizador logado ao campo 'created_by' ao criar um novo registo.
+        """
+        serializer.save(created_by=self.request.user)
