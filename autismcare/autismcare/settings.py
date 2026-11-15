@@ -3,9 +3,13 @@ from pathlib import Path
 from datetime import timedelta
 
 from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Carrega o .env da raiz do repositório. Variáveis já definidas no ambiente têm prioridade.
+load_dotenv(BASE_DIR.parent / '.env')
 
 
 # Quick-start development settings - unsuitable for production
