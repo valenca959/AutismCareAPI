@@ -1,28 +1,54 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from .models import Parent, Child
-from .serializers import ParentSerializer, ChildSerializer
-from users.permissions import IsOwnerOrReadOnly, IsParentOrReadOnly
+
+from users.permissions import (
+    get_employee,
+    is_recepcao_ou_coordenador,
+    is_terapeuta,
+    ReadOnlyOrRecepcaoOuCoordenador,
+)
+from .models import Parent, Child, Agendamento
+from .serializers import ParentSerializer, ChildSerializer, AgendamentoSerializer
+
 
 class ParentViewSet(viewsets.ModelViewSet):
-    queryset = Parent.objects.all()
     serializer_class = ParentSerializer
-    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
-
-    def get_queryset(self):
-        if hasattr(self.request.user, 'employee'):
-            return Parent.objects.select_related('user').prefetch_related('children')
-        return Parent.objects.filter(user=self.request.user).select_related('user').prefetch_related('children')
-
-class ChildViewSet(viewsets.ModelViewSet):
-    queryset = Child.objects.all()
-    serializer_class = ChildSerializer
-    permission_classes = [IsAuthenticated, IsParentOrReadOnly]
+    permission_classes = [IsAuthenticated, ReadOnlyOrRecepcaoOuCoordenador]
 
     def get_queryset(self):
         user = self.request.user
-        if hasattr(user, 'parent'):
-            return Child.objects.filter(parent=user.parent)
-        elif hasattr(user, 'employee'):
-            return Child.objects.all()
-        return Child.objects.none()
+        qs = Parent.objects.select_related('user').prefetch_related('children')
+        if is_recepcao_ou_coordenador(user):
+            return qs.all()
+        if is_terapeuta(user):
+            # Responsáveis das crianças agendadas com o terapeuta.
+            return qs.filter(children__agendamentos__terapeuta=get_employee(user)).distinct()
+        return qs.filter(user=user)
+
+
+class ChildViewSet(viewsets.ModelViewSet):
+    serializer_class = ChildSerializer
+    permission_classes = [IsAuthenticated, ReadOnlyOrRecepcaoOuCoordenador]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = Child.objects.select_related('parent__user')
+        if is_recepcao_ou_coordenador(user):
+            return qs.all()
+        if is_terapeuta(user):
+            return qs.filter(agendamentos__terapeuta=get_employee(user)).distinct()
+        return qs.filter(parent__user=user)
+
+
+class AgendamentoViewSet(viewsets.ModelViewSet):
+    serializer_class = AgendamentoSerializer
+    permission_classes = [IsAuthenticated, ReadOnlyOrRecepcaoOuCoordenador]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = Agendamento.objects.select_related('child', 'terapeuta__user')
+        if is_recepcao_ou_coordenador(user):
+            return qs.all()
+        if is_terapeuta(user):
+            return qs.filter(terapeuta=get_employee(user))
+        return qs.none()

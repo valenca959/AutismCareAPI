@@ -12,14 +12,14 @@ class Migration(migrations.Migration):
     dependencies = [
         ('medical', '0002_initial'),
         ('patients', '0001_initial'),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ('users', '0002_alter_autenticationuser_managers_and_more'),
     ]
 
     operations = [
         migrations.AddField(
             model_name='medicalhistory',
             name='created_by',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL, verbose_name='Registrado por'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='users.autenticationuser', verbose_name='Registrado por'),
         ),
         migrations.AddField(
             model_name='medicalrecord',

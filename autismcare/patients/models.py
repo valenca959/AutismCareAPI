@@ -2,11 +2,11 @@
 
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
-from users.models import AutenticationUser
+from users.models import AuthenticationUser
 
 class Parent(models.Model):
     user = models.OneToOneField(
-        AutenticationUser,
+        AuthenticationUser,
         on_delete=models.CASCADE,
         related_name='parent'
     )
@@ -55,3 +55,27 @@ class Child(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=['parent'])]
+
+
+class Agendamento(models.Model):
+    """Liga uma criança a um terapeuta em um horário. Define quem o terapeuta pode ver."""
+    child = models.ForeignKey(
+        Child,
+        on_delete=models.CASCADE,
+        related_name='agendamentos'
+    )
+    terapeuta = models.ForeignKey(
+        'users.Employee',
+        on_delete=models.CASCADE,
+        related_name='agendamentos'
+    )
+    data_hora = models.DateTimeField(verbose_name="Data e Hora")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Agendamento"
+        verbose_name_plural = "Agendamentos"
+        ordering = ['data_hora']
+
+    def __str__(self):
+        return f"{self.child.first_name} com {self.terapeuta.user.email} em {self.data_hora:%d/%m/%Y %H:%M}"

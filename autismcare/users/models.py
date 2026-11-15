@@ -1,11 +1,11 @@
 # autismcare/users/models.py
 
 from django.db import models
-from django.contrib.auth.models import AbstractUser, Permission, BaseUserManager
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import RegexValidator, MinValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
+from .fields import EncryptedCharField, hash_cpf
 
-# ADICIONE ESTA NOVA CLASSE
 class CustomUserManager(BaseUserManager):
     """
     Gestor de modelo de utilizador personalizado onde o email é o identificador único
@@ -56,7 +56,7 @@ class Address(models.Model):
         verbose_name_plural = "Endereços"
 
 
-class AutenticationUser(AbstractUser):
+class AuthenticationUser(AbstractUser):
     # O username padrão não é mais necessário
     username = None
     email = models.EmailField(unique=True)
@@ -71,11 +71,12 @@ class AutenticationUser(AbstractUser):
     telephone = PhoneNumberField(region="BR")
     telephone2 = PhoneNumberField(blank=True, null=True)
     birthdate = models.DateField(null=True, blank=True)
-    cpf = models.CharField(
-        max_length=11,
-        unique=True,
+    cpf = EncryptedCharField(
+        max_length=255,
         validators=[RegexValidator(r'^\d{11}$', 'CPF deve ter 11 dígitos numéricos.')]
     )
+    # HMAC do CPF: garante unicidade e permite buscar sem guardar o CPF em texto.
+    cpf_hash = models.CharField(max_length=64, unique=True, editable=False, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -89,9 +90,10 @@ class AutenticationUser(AbstractUser):
     def __str__(self):
         return self.email
     
-    # Esta função pode ser simplificada ou removida se não for usada,
-    # já que o Django já não se baseia em 'username'.
+
     def save(self, *args, **kwargs):
+        if self.cpf:
+            self.cpf_hash = hash_cpf(self.cpf)
         super().save(*args, **kwargs)
 
     def get_user_type(self):
@@ -99,7 +101,7 @@ class AutenticationUser(AbstractUser):
             return 'employee'
         elif hasattr(self, 'parent'):
             return 'parent'
-        return 'autentication_user'
+        return 'authentication_user'
 
     class Meta:
         indexes = [
@@ -107,15 +109,9 @@ class AutenticationUser(AbstractUser):
             models.Index(fields=['cpf']),
         ]
 
-# O resto dos modelos (Role, Employee) permanece igual abaixo...
 class Role(models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name="Nome da Role")
     description = models.TextField(blank=True, null=True, verbose_name="Descrição")
-    permissions = models.ManyToManyField(
-        Permission,
-        blank=True,
-        verbose_name="Permissões"
-    )
     parent_role = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,
@@ -142,7 +138,7 @@ class Employee(models.Model):
     ]
 
     user = models.OneToOneField(
-        AutenticationUser,
+        AuthenticationUser,
         on_delete=models.CASCADE,
         related_name='employee'
     )
