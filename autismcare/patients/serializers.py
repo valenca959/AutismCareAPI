@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from .models import Parent, Child, Agendamento
 from users.models import AuthenticationUser
@@ -13,6 +14,7 @@ class ChildSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at']
 
+    @extend_schema_field(AuthenticationUserSerializer)
     def get_parent_detail(self, obj):
         return AuthenticationUserSerializer(obj.parent.user).data
 

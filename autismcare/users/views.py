@@ -10,11 +10,20 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from medical.models import RegistroAcesso
 from .models import AuthenticationUser, Address, Role, Employee
-from .serializers import AuthenticationUserSerializer, AddressSerializer, RoleSerializer, EmployeeSerializer
+from .serializers import (
+    AuthenticationUserSerializer,
+    AddressSerializer,
+    RoleSerializer,
+    EmployeeSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
+)
 from .emails import enviar_email_senha
 from .lgpd import anonimizar_usuario
 from .permissions import (
@@ -32,10 +41,12 @@ class AddressViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, ReadOnlyOrRecepcaoOuCoordenador]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):  # geração do Swagger, sem usuário real
+            return Address.objects.none()
         user = self.request.user
         if is_recepcao_ou_coordenador(user):
-            return Address.objects.all()
-        return Address.objects.filter(user=user)
+            return Address.objects.order_by('pk')
+        return Address.objects.filter(user=user).order_by('pk')
 
 
 class AuthenticationUserViewSet(viewsets.ModelViewSet):
@@ -44,7 +55,7 @@ class AuthenticationUserViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = AuthenticationUser.objects.select_related('address')
+        qs = AuthenticationUser.objects.select_related('address').order_by('email')
         if is_recepcao_ou_coordenador(user):
             return qs.all()
         if is_terapeuta(user):
@@ -88,9 +99,12 @@ class RoleViewSet(viewsets.ModelViewSet):
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    queryset = Employee.objects.select_related('user', 'role')
+    queryset = Employee.objects.select_related('user', 'role').order_by('user__email')
     serializer_class = EmployeeSerializer
     permission_classes = [IsAuthenticated, IsCoordenador]
+
+
+_DETAIL = inline_serializer('Detalhe', {'detail': serializers.CharField()})
 
 
 class LoginView(TokenObtainPairView):
@@ -105,6 +119,7 @@ class PasswordResetRequestView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'password_reset'
 
+    @extend_schema(request=PasswordResetRequestSerializer, responses={200: _DETAIL})
     def post(self, request):
         email = str(request.data.get('email', '')).strip()
         user = None
@@ -120,6 +135,7 @@ class PasswordResetConfirmView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'password_confirm'
 
+    @extend_schema(request=PasswordResetConfirmSerializer, responses={200: _DETAIL, 400: _DETAIL})
     def post(self, request):
         uid = request.data.get('uid', '')
         token = request.data.get('token', '')

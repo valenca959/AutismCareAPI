@@ -16,8 +16,10 @@ class ParentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, ReadOnlyOrRecepcaoOuCoordenador]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):  # geração do Swagger, sem usuário real
+            return Parent.objects.none()
         user = self.request.user
-        qs = Parent.objects.select_related('user').prefetch_related('children')
+        qs = Parent.objects.select_related('user').prefetch_related('children').order_by('user__first_name', 'pk')
         if is_recepcao_ou_coordenador(user):
             return qs.all()
         if is_terapeuta(user):
@@ -31,8 +33,10 @@ class ChildViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, ReadOnlyOrRecepcaoOuCoordenador]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):  # geração do Swagger, sem usuário real
+            return Child.objects.none()
         user = self.request.user
-        qs = Child.objects.select_related('parent__user')
+        qs = Child.objects.select_related('parent__user').order_by('first_name', 'last_name', 'pk')
         if is_recepcao_ou_coordenador(user):
             return qs.all()
         if is_terapeuta(user):

@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'phonenumber_field',
+    'corsheaders',
+    'drf_spectacular',
 
     'users',
     'patients',
@@ -66,6 +68,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # CORS precisa vir antes do CommonMiddleware para responder ao preflight (OPTIONS).
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -157,6 +161,9 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Listagens paginadas: {"count", "next", "previous", "results"}.
+    'DEFAULT_PAGINATION_CLASS': 'autismcare.pagination.PaginacaoPadrao',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     # Limites das rotas de senha, por IP (cache local: use Redis se houver mais de um processo).
     'DEFAULT_THROTTLE_RATES': {
         'login': '10/minute',
@@ -175,6 +182,26 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+# Documentação da API: Swagger em /api/docs/ e ReDoc em /api/redoc/.
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'AutismCare API',
+    'DESCRIPTION': (
+        'API para gestão de crianças atendidas, responsáveis, funcionários e prontuários. '
+        'Faça login em POST /api/token/ e use o access no botão "Authorize" (Bearer).'
+    ),
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+}
+
+# CORS: origens do front-end que podem chamar a API pelo navegador.
+# Lista separada por vírgulas, ex.: "http://localhost:3000,http://localhost:5173"
+CORS_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get('DJANGO_CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000').split(',')
+    if o.strip()
+]
 
 # E-mail (link para definir ou redefinir a senha)
 EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')

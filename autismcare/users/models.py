@@ -1,5 +1,7 @@
 # autismcare/users/models.py
 
+from decimal import Decimal
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import RegexValidator, MinValueValidator
@@ -146,7 +148,7 @@ class Employee(models.Model):
     salary = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        validators=[MinValueValidator(0)]
+        validators=[MinValueValidator(Decimal('0'))]
     )
     admission_date = models.DateField()
     status = models.CharField(

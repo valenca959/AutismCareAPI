@@ -48,7 +48,7 @@ class RegistroAcessoMixin:
 
 class AllergyViewSet(viewsets.ModelViewSet):
     # Catálogo de alergias: leitura para autenticados, escrita para terapeuta/coordenador.
-    queryset = Allergy.objects.all()
+    queryset = Allergy.objects.order_by('name')
     serializer_class = AllergySerializer
     permission_classes = [IsAuthenticated, ReadOnlyOrProfissionalDeSaude]
 
@@ -60,7 +60,7 @@ class MedicalRecordViewSet(RegistroAcessoMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = MedicalRecord.objects.select_related('child__parent__user').prefetch_related('allergies')
+        qs = MedicalRecord.objects.select_related('child__parent__user').prefetch_related('allergies').order_by('pk')
         if is_coordenador(user):
             return qs.all()
         if is_terapeuta(user):

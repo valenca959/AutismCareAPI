@@ -21,7 +21,7 @@ class AuthenticationUserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['date_joined', 'is_active', 'is_staff', 'created_at', 'updated_at']
 
-    def get_user_type(self, obj):
+    def get_user_type(self, obj) -> str:
         return obj.get_user_type()
 
     def validate_cpf(self, value):
@@ -38,6 +38,18 @@ class AuthenticationUserSerializer(serializers.ModelSerializer):
         user.set_unusable_password()
         user.save()
         return user
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Email da conta que vai receber o link para definir a senha."""
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """uid e token do link recebido por email, mais a nova senha."""
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+
 
 class RoleSerializer(serializers.ModelSerializer):
     parent_role = serializers.PrimaryKeyRelatedField(queryset=Role.objects.all(), allow_null=True)

@@ -17,6 +17,7 @@ API REST em Django e Django REST Framework para gestão de crianças atendidas, 
 | `DJANGO_DEFAULT_FROM_EMAIL` | não | Remetente dos emails. |
 | `DJANGO_FIELD_ENCRYPTION_KEY` | sim | Chave Fernet que criptografa CPF e notas médicas. Não perca esta chave: sem ela os dados não são recuperados. |
 | `FRONTEND_URL` | não | Endereço do front-end, usado no link de definir senha. |
+| `DJANGO_CORS_ALLOWED_ORIGINS` | não | Origens do front-end que podem chamar a API pelo navegador, separadas por vírgula. O padrão é `http://localhost:3000,http://127.0.0.1:3000`. |
 
 As variáveis são lidas do arquivo `.env` na raiz do repositório (variáveis já definidas no ambiente têm prioridade). Para criar o seu:
 
@@ -55,15 +56,31 @@ O login usa email e senha, com tokens JWT:
 
 Todos os endpoints exigem autenticação, exceto os de senha.
 
+## Documentação da API
+
+Com o servidor rodando:
+
+- **Swagger:** http://127.0.0.1:8000/api/docs/ (dá para testar as rotas: faça login em `POST /api/token/`, copie o `access` e clique em **Authorize**)
+- **ReDoc:** http://127.0.0.1:8000/api/redoc/
+- **Schema OpenAPI:** http://127.0.0.1:8000/api/schema/ (para gerar clientes no front)
+
+## Paginação
+
+As listagens são paginadas, 20 itens por página:
+
+```json
+{"count": 57, "next": "http://.../api/children/?page=2", "previous": null, "results": [...]}
+```
+
+Use `?page=2` para trocar de página e `?page_size=50` para mudar o tamanho (máximo 100).
+
 ## Endpoints principais
 
-Todos sob o prefixo `/api/`:
+Todos sob o prefixo `/api/`. Cada app declara as próprias rotas no seu `urls.py`:
 
-- `users/`, `addresses/`, `roles/`, `employees/`
-- `parents/`, `children/`, `agendamentos/`
-- `allergies/`, `medical-records/`, `medical-histories/`
-- `acessos-medicos/` (somente coordenador, leitura)
-- `password/reset/` e `password/reset/confirm/` (públicos)
+- **users:** `users/`, `users/me/`, `addresses/`, `roles/`, `employees/`, `token/`, `token/refresh/`, `password/reset/` e `password/reset/confirm/` (os de senha são públicos)
+- **patients:** `parents/`, `children/`, `agendamentos/`
+- **medical:** `allergies/`, `medical-records/`, `medical-histories/`, `acessos-medicos/` (somente coordenador, leitura)
 
 ## Papéis e permissões
 
