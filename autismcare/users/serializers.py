@@ -48,10 +48,28 @@ class RoleSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
 class EmployeeSerializer(serializers.ModelSerializer):
+    # Leitura: objetos completos em `user` e `role`. Escrita: ids em `user_id` e `role_id`.
     user = AuthenticationUserSerializer(read_only=True)
     role = RoleSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        source='user', queryset=AuthenticationUser.objects.all(), write_only=True
+    )
+    role_id = serializers.PrimaryKeyRelatedField(
+        source='role', queryset=Role.objects.all(), write_only=True,
+        required=False, allow_null=True,
+    )
 
     class Meta:
         model = Employee
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at']
+
+    def validate_user_id(self, user):
+        if hasattr(user, 'parent'):
+            raise serializers.ValidationError('Um responsável não pode ser cadastrado como funcionário.')
+        outro = Employee.objects.filter(user=user)
+        if self.instance is not None:
+            outro = outro.exclude(pk=self.instance.pk)
+        if outro.exists():
+            raise serializers.ValidationError('Este usuário já é um funcionário.')
+        return user

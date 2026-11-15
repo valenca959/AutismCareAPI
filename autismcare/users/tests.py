@@ -223,3 +223,79 @@ class LGPDTest(BaseCenario):
         self.client.force_authenticate(self.recepcao.user)
         resp = self.client.post(reverse('user-anonimizar', args=[self.resp.user.pk]))
         self.assertEqual(resp.status_code, 403)
+
+
+class CadastroParentEmployeeTest(BaseCenario):
+    def test_recepcao_cadastra_responsavel(self):
+        user = criar_usuario('novo-resp@x.com', '10101010101')
+        self.client.force_authenticate(self.recepcao.user)
+        resp = self.client.post(reverse('parent-list'), {'user_id': user.pk, 'spouse': 'Carlos'})
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['user']['email'], 'novo-resp@x.com')
+        self.assertTrue(Parent.objects.filter(user=user).exists())
+
+    def test_funcionario_nao_vira_responsavel(self):
+        self.client.force_authenticate(self.recepcao.user)
+        resp = self.client.post(reverse('parent-list'), {'user_id': self.terapeuta.user.pk})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('user_id', resp.data)
+
+    def test_responsavel_duplicado_retorna_400(self):
+        self.client.force_authenticate(self.recepcao.user)
+        resp = self.client.post(reverse('parent-list'), {'user_id': self.resp.user.pk})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_coordenador_cadastra_funcionario(self):
+        user = criar_usuario('novo-func@x.com', '20202020202')
+        role = Role.objects.get(name='terapeuta')
+        self.client.force_authenticate(self.coordenador.user)
+        resp = self.client.post(reverse('employee-list'), {
+            'user_id': user.pk, 'role_id': role.pk, 'salary': '2500.00', 'admission_date': '2025-01-01',
+        })
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['role']['name'], 'terapeuta')
+        self.assertEqual(Employee.objects.get(user=user).role, role)
+
+    def test_responsavel_nao_vira_funcionario(self):
+        self.client.force_authenticate(self.coordenador.user)
+        resp = self.client.post(reverse('employee-list'), {
+            'user_id': self.resp.user.pk, 'salary': '1000.00', 'admission_date': '2025-01-01',
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('user_id', resp.data)
+
+
+class AdminUsuarioTest(BaseCenario):
+    def test_admin_cria_usuario_com_senha_em_hash(self):
+        admin_user = AuthenticationUser.objects.create_superuser(
+            email='admin@x.com', password='senha-forte-123', cpf='30303030303', telephone='+5581999993333',
+        )
+        self.client.force_login(admin_user)
+        resp = self.client.post('/admin/users/authenticationuser/add/', {
+            'email': 'pelo-admin@x.com', 'cpf': '40404040404', 'telephone': '+5581999994444',
+            'usable_password': 'true', 'password1': 'Senha-forte-789', 'password2': 'Senha-forte-789',
+        })
+        self.assertEqual(resp.status_code, 302)
+        user = AuthenticationUser.objects.get(email='pelo-admin@x.com')
+        self.assertNotEqual(user.password, 'Senha-forte-789')
+        self.assertTrue(user.check_password('Senha-forte-789'))
+
+    def test_admin_recusa_cpf_duplicado(self):
+        admin_user = AuthenticationUser.objects.create_superuser(
+            email='admin@x.com', password='senha-forte-123', cpf='30303030303', telephone='+5581999993333',
+        )
+        self.client.force_login(admin_user)
+        resp = self.client.post('/admin/users/authenticationuser/add/', {
+            'email': 'dup-admin@x.com', 'cpf': '22222222222', 'telephone': '+5581999994444',
+            'usable_password': 'true', 'password1': 'Senha-forte-789', 'password2': 'Senha-forte-789',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(AuthenticationUser.objects.filter(email='dup-admin@x.com').exists())
+
+    def test_admin_abre_pagina_de_edicao(self):
+        admin_user = AuthenticationUser.objects.create_superuser(
+            email='admin@x.com', password='senha-forte-123', cpf='30303030303', telephone='+5581999993333',
+        )
+        self.client.force_login(admin_user)
+        resp = self.client.get(f'/admin/users/authenticationuser/{self.resp.user.pk}/change/')
+        self.assertEqual(resp.status_code, 200)

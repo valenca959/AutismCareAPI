@@ -1,7 +1,67 @@
+from django import forms
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.forms import AdminUserCreationForm, UserChangeForm
+
+from .fields import hash_cpf
 from .models import AuthenticationUser, Address, Role, Employee
 
-admin.site.register(AuthenticationUser)
+
+class _CpfUnicoMixin:
+    """O CPF fica criptografado, então a unicidade é checada pelo hash."""
+
+    def clean_cpf(self):
+        cpf = self.cleaned_data.get('cpf')
+        if cpf:
+            qs = AuthenticationUser.objects.filter(cpf_hash=hash_cpf(cpf))
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError('Já existe usuário com este CPF.')
+        return cpf
+
+
+class AuthenticationUserCreationForm(_CpfUnicoMixin, AdminUserCreationForm):
+    class Meta:
+        model = AuthenticationUser
+        fields = ('email', 'cpf', 'telephone')
+        field_classes = {}
+
+
+class AuthenticationUserChangeForm(_CpfUnicoMixin, UserChangeForm):
+    class Meta:
+        model = AuthenticationUser
+        fields = '__all__'
+        field_classes = {}
+
+
+@admin.register(AuthenticationUser)
+class AuthenticationUserAdmin(UserAdmin):
+    # Formulários do UserAdmin: a senha é gravada com hash, nunca em texto puro.
+    form = AuthenticationUserChangeForm
+    add_form = AuthenticationUserCreationForm
+
+    fieldsets = (
+        (None, {'fields': ('email', 'password')}),
+        ('Dados pessoais', {
+            'fields': ('first_name', 'last_name', 'cpf', 'birthdate', 'telephone', 'telephone2', 'address'),
+        }),
+        ('Permissões', {
+            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
+        }),
+        ('Datas', {'fields': ('last_login', 'date_joined')}),
+    )
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'cpf', 'telephone', 'usable_password', 'password1', 'password2'),
+        }),
+    )
+    list_display = ('email', 'first_name', 'last_name', 'is_staff', 'is_active')
+    search_fields = ('email', 'first_name', 'last_name')
+    ordering = ('email',)
+
+
 admin.site.register(Address)
 admin.site.register(Role)
 admin.site.register(Employee)
