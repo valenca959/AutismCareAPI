@@ -1,5 +1,6 @@
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
+from django.core.cache import cache
 from django.db import connection
 from django.urls import reverse
 from django.utils import timezone
@@ -299,3 +300,76 @@ class AdminUsuarioTest(BaseCenario):
         self.client.force_login(admin_user)
         resp = self.client.get(f'/admin/users/authenticationuser/{self.resp.user.pk}/change/')
         self.assertEqual(resp.status_code, 200)
+
+
+class LoginEMeTest(BaseCenario):
+    def setUp(self):
+        super().setUp()
+        cache.clear()  # o limite de tentativas fica no cache
+
+    def test_login_retorna_tokens(self):
+        resp = self.client.post(reverse('token_obtain_pair'), {
+            'email': 'resp@x.com', 'password': 'senha-forte-123',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('access', resp.data)
+        self.assertIn('refresh', resp.data)
+
+    def test_login_bloqueia_apos_muitas_tentativas(self):
+        for _ in range(10):
+            resp = self.client.post(reverse('token_obtain_pair'), {'email': 'resp@x.com', 'password': 'errada'})
+            self.assertEqual(resp.status_code, 401)
+        resp = self.client.post(reverse('token_obtain_pair'), {'email': 'resp@x.com', 'password': 'errada'})
+        self.assertEqual(resp.status_code, 429)
+
+    def test_me_retorna_usuario_logado(self):
+        self.client.force_authenticate(self.terapeuta.user)
+        resp = self.client.get(reverse('user-me'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['email'], 'ter@x.com')
+        self.assertEqual(resp.data['user_type'], 'employee')
+
+    def test_me_de_responsavel(self):
+        self.client.force_authenticate(self.resp.user)
+        resp = self.client.get(reverse('user-me'))
+        self.assertEqual(resp.data['user_type'], 'parent')
+
+    def test_me_exige_login(self):
+        resp = self.client.get(reverse('user-me'))
+        self.assertEqual(resp.status_code, 401)
+
+    def test_me_com_token_jwt(self):
+        token = self.client.post(reverse('token_obtain_pair'), {
+            'email': 'resp@x.com', 'password': 'senha-forte-123',
+        }).data['access']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        resp = self.client.get(reverse('user-me'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['email'], 'resp@x.com')
+
+
+class AdminAuditoriaTest(BaseCenario):
+    def test_registro_de_acesso_e_somente_leitura_no_admin(self):
+        admin_user = AuthenticationUser.objects.create_superuser(
+            email='admin@x.com', password='senha-forte-123', cpf='30303030303', telephone='+5581999993333',
+        )
+        registro = RegistroAcesso.objects.create(usuario=admin_user, recurso='prontuario', acao='leitura')
+        self.client.force_login(admin_user)
+        self.assertEqual(self.client.get('/admin/medical/registroacesso/').status_code, 200)
+        self.assertEqual(self.client.get('/admin/medical/registroacesso/add/').status_code, 403)
+        resp = self.client.post(f'/admin/medical/registroacesso/{registro.pk}/delete/', {'post': 'yes'})
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(RegistroAcesso.objects.filter(pk=registro.pk).exists())
+
+    def test_paginas_de_lista_do_admin_abrem(self):
+        admin_user = AuthenticationUser.objects.create_superuser(
+            email='admin@x.com', password='senha-forte-123', cpf='30303030303', telephone='+5581999993333',
+        )
+        self.client.force_login(admin_user)
+        for url in [
+            '/admin/users/authenticationuser/', '/admin/users/employee/', '/admin/users/address/',
+            '/admin/users/role/', '/admin/patients/parent/', '/admin/patients/child/',
+            '/admin/patients/agendamento/', '/admin/medical/allergy/', '/admin/medical/medicalrecord/',
+            '/admin/medical/medicalhistory/', f'/admin/patients/parent/{self.resp.pk}/change/',
+        ]:
+            self.assertEqual(self.client.get(url).status_code, 200, url)

@@ -53,9 +53,6 @@ class Child(models.Model):
     def __str__(self):
         return f"{self.first_name} {self.last_name} (Responsável: {self.parent.user.get_full_name()})"
 
-    class Meta:
-        indexes = [models.Index(fields=['parent'])]
-
 
 class Agendamento(models.Model):
     """Liga uma criança a um terapeuta em um horário. Define quem o terapeuta pode ver."""

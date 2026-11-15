@@ -10,6 +10,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from medical.models import RegistroAcesso
 from .models import AuthenticationUser, Address, Role, Employee
@@ -57,6 +58,11 @@ class AuthenticationUserViewSet(viewsets.ModelViewSet):
         user = serializer.save()
         enviar_email_senha(user)
 
+    @action(detail=False, methods=['get'], url_path='me')
+    def me(self, request):
+        """Dados do usuário logado, incluindo o user_type (employee, parent...)."""
+        return Response(self.get_serializer(request.user).data)
+
     def destroy(self, request, *args, **kwargs):
         # Apagar o usuário apagaria o prontuário em cascata. Use a anonimização.
         return Response(
@@ -85,6 +91,12 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.select_related('user', 'role')
     serializer_class = EmployeeSerializer
     permission_classes = [IsAuthenticated, IsCoordenador]
+
+
+class LoginView(TokenObtainPairView):
+    """Login (JWT) com limite de tentativas por IP, contra ataques de força bruta."""
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
 
 
 class PasswordResetRequestView(APIView):

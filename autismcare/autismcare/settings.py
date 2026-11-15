@@ -1,7 +1,9 @@
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 
+from cryptography.fernet import Fernet
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
@@ -26,6 +28,13 @@ if not SECRET_KEY:
 FIELD_ENCRYPTION_KEY = os.environ.get('DJANGO_FIELD_ENCRYPTION_KEY')
 if not FIELD_ENCRYPTION_KEY:
     raise ImproperlyConfigured('Defina a variável de ambiente DJANGO_FIELD_ENCRYPTION_KEY.')
+try:
+    Fernet(FIELD_ENCRYPTION_KEY.encode())
+except ValueError:
+    raise ImproperlyConfigured(
+        'DJANGO_FIELD_ENCRYPTION_KEY não é uma chave Fernet válida (32 bytes em base64 urlsafe). '
+        'Gere uma com: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Para desenvolvimento local, defina DJANGO_DEBUG=True.
@@ -150,10 +159,16 @@ REST_FRAMEWORK = {
     ),
     # Limites das rotas de senha, por IP (cache local: use Redis se houver mais de um processo).
     'DEFAULT_THROTTLE_RATES': {
+        'login': '10/minute',
         'password_reset': '5/hour',
         'password_confirm': '20/hour',
     },
 }
+
+# Nos testes, um hasher rápido: o PBKDF2 padrão deixa cada criação de usuário lenta.
+# Nunca use MD5 fora dos testes.
+if len(sys.argv) > 1 and sys.argv[1] == 'test':
+    PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),

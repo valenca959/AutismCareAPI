@@ -1,11 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     AuthenticationUserViewSet,
     AddressViewSet,
     RoleViewSet,
     EmployeeViewSet,
+    LoginView,
     PasswordResetRequestView,
     PasswordResetConfirmView,
 )
@@ -39,7 +40,7 @@ router.register(r'acessos-medicos', RegistroAcessoViewSet, basename='acesso-medi
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/', LoginView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('password/reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password/reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),

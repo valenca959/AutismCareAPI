@@ -18,24 +18,26 @@ API REST em Django e Django REST Framework para gestão de crianças atendidas, 
 | `DJANGO_FIELD_ENCRYPTION_KEY` | sim | Chave Fernet que criptografa CPF e notas médicas. Não perca esta chave: sem ela os dados não são recuperados. |
 | `FRONTEND_URL` | não | Endereço do front-end, usado no link de definir senha. |
 
-Exemplo para desenvolvimento local (Linux/macOS):
+As variáveis são lidas do arquivo `.env` na raiz do repositório (variáveis já definidas no ambiente têm prioridade). Para criar o seu:
 
 ```bash
-export DJANGO_SECRET_KEY="troque-pela-sua-chave"
-export DJANGO_DEBUG=True
-export DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+cp .env.example .env
 ```
 
-Gere a chave secreta com: `python -c "import secrets; print(secrets.token_urlsafe(50))"`
+Depois preencha as duas chaves obrigatórias:
 
-Gere a chave de criptografia com: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+- Chave secreta: `python -c "import secrets; print(secrets.token_urlsafe(50))"`
+- Chave de criptografia: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+
+O projeto não sobe se a chave de criptografia estiver vazia ou inválida. Guarde-a em lugar seguro: sem ela, o CPF e as notas médicas gravados não podem mais ser lidos.
 
 ## Instalação
 
 ```bash
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -r autismcare/requirements.txt
+cp .env.example .env            # e preencha as chaves (veja acima)
 cd autismcare
 python manage.py migrate
 python manage.py createsuperuser   # pede email, senha e CPF
@@ -46,8 +48,9 @@ python manage.py runserver
 
 O login usa email e senha, com tokens JWT:
 
-- `POST /api/token/` retorna `access` e `refresh`.
+- `POST /api/token/` com `{"email", "password"}` retorna `access` e `refresh`. Limite de 10 tentativas por minuto por IP.
 - `POST /api/token/refresh/` renova o `access`.
+- `GET /api/users/me/` retorna os dados do usuário logado, incluindo `user_type` (`employee`, `parent` ou `authentication_user`).
 - Nas demais requisições, envie o cabeçalho `Authorization: Bearer <access>`.
 
 Todos os endpoints exigem autenticação, exceto os de senha.
@@ -91,10 +94,10 @@ Toda leitura de prontuário e anotações gera um registro em `RegistroAcesso` (
 
 ```bash
 cd autismcare
-python manage.py test users
+python manage.py test
 ```
 
-Os testes precisam da variável `DJANGO_SECRET_KEY` definida.
+Os testes usam o mesmo `.env`. Durante os testes a senha é gravada com um hash rápido (MD5), só para acelerar a execução.
 
 ## Dados pessoais (LGPD)
 
@@ -105,4 +108,4 @@ Os testes precisam da variável `DJANGO_SECRET_KEY` definida.
 
 ## Limites de tentativas
 
-Os endpoints de senha têm limite por IP: 5 pedidos por hora e 20 confirmações por hora. O limite usa o cache local do Django. Com mais de um processo, configure um cache compartilhado (ex.: Redis).
+O login tem limite de 10 tentativas por minuto por IP. Os endpoints de senha também têm limite por IP: 5 pedidos por hora e 20 confirmações por hora. O limite usa o cache local do Django. Com mais de um processo, configure um cache compartilhado (ex.: Redis).

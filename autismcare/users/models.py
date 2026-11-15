@@ -103,12 +103,6 @@ class AuthenticationUser(AbstractUser):
             return 'parent'
         return 'authentication_user'
 
-    class Meta:
-        indexes = [
-            models.Index(fields=['email']),
-            models.Index(fields=['cpf']),
-        ]
-
 class Role(models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name="Nome da Role")
     description = models.TextField(blank=True, null=True, verbose_name="Descrição")

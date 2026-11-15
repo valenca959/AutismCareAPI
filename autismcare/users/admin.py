@@ -62,6 +62,23 @@ class AuthenticationUserAdmin(UserAdmin):
     ordering = ('email',)
 
 
-admin.site.register(Address)
-admin.site.register(Role)
-admin.site.register(Employee)
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
+    list_display = ('street', 'number', 'city', 'state', 'zip_code')
+    list_filter = ('state',)
+    search_fields = ('street', 'city', 'zip_code')
+
+
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ('name', 'parent_role')
+    search_fields = ('name',)
+
+
+@admin.register(Employee)
+class EmployeeAdmin(admin.ModelAdmin):
+    list_display = ('user', 'role', 'status', 'admission_date')
+    list_filter = ('status', 'role')
+    search_fields = ('user__email', 'user__first_name', 'user__last_name')
+    list_select_related = ('user', 'role')
+    raw_id_fields = ('user',)
