@@ -49,10 +49,13 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, ReadOnlyOrRecepcaoOuCoordenador]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):  # geração do Swagger, sem usuário real
+            return Agendamento.objects.none()
         user = self.request.user
-        qs = Agendamento.objects.select_related('child', 'terapeuta__user')
+        qs = Agendamento.objects.select_related('child', 'terapeuta__user', 'terapeuta__role')
         if is_recepcao_ou_coordenador(user):
             return qs.all()
         if is_terapeuta(user):
             return qs.filter(terapeuta=get_employee(user))
-        return qs.none()
+        # Responsável acompanha (só leitura) os atendimentos dos próprios filhos.
+        return qs.filter(child__parent__user=user)

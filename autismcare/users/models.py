@@ -4,8 +4,9 @@ from decimal import Decimal
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from django.core.validators import RegexValidator, MinValueValidator
+from django.core.validators import MinValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
+from .cpf import validar_cpf
 from .fields import EncryptedCharField, hash_cpf
 
 class CustomUserManager(BaseUserManager):
@@ -75,7 +76,7 @@ class AuthenticationUser(AbstractUser):
     birthdate = models.DateField(null=True, blank=True)
     cpf = EncryptedCharField(
         max_length=255,
-        validators=[RegexValidator(r'^\d{11}$', 'CPF deve ter 11 dígitos numéricos.')]
+        validators=[validar_cpf]
     )
     # HMAC do CPF: garante unicidade e permite buscar sem guardar o CPF em texto.
     cpf_hash = models.CharField(max_length=64, unique=True, editable=False, default='')

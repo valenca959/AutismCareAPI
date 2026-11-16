@@ -1,5 +1,8 @@
 # autismcare/patients/models.py
 
+from datetime import timedelta
+
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 from users.models import AuthenticationUser
@@ -67,7 +70,16 @@ class Agendamento(models.Model):
         related_name='agendamentos'
     )
     data_hora = models.DateTimeField(verbose_name="Data e Hora")
+    duracao_minutos = models.PositiveSmallIntegerField(
+        default=60,
+        validators=[MinValueValidator(15), MaxValueValidator(240)],
+        verbose_name="Duração (minutos)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def fim(self):
+        return self.data_hora + timedelta(minutes=self.duracao_minutos)
 
     class Meta:
         verbose_name = "Agendamento"

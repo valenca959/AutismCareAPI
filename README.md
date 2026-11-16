@@ -50,7 +50,8 @@ python manage.py runserver
 O login usa email e senha, com tokens JWT:
 
 - `POST /api/token/` com `{"email", "password"}` retorna `access` e `refresh`. Limite de 10 tentativas por minuto por IP.
-- `POST /api/token/refresh/` renova o `access`.
+- `POST /api/token/refresh/` com `{"refresh"}` renova o `access` e devolve também um **novo** `refresh`. O antigo deixa de valer, então o front deve guardar o novo.
+- `POST /api/token/logout/` com `{"refresh"}` faz o logout: o `refresh` vai para a blacklist e não renova mais. O `access` atual continua válido até expirar (1 hora), então o front deve descartá-lo.
 - `GET /api/users/me/` retorna os dados do usuário logado, incluindo `user_type` (`employee`, `parent` ou `authentication_user`).
 - Nas demais requisições, envie o cabeçalho `Authorization: Bearer <access>`.
 
@@ -97,6 +98,15 @@ Funcionários com status diferente de `active` não têm acesso especial.
 
 Os agendamentos (`/api/agendamentos/`) definem quais crianças cada terapeuta pode ver. Sem um agendamento, o terapeuta não enxerga a criança.
 
+## Agenda
+
+Cada agendamento tem `data_hora` e `duracao_minutos` (padrão 60, entre 15 e 240). A resposta traz também `fim`, `crianca_nome` e `terapeuta_nome`. Regras:
+
+- Só funcionários ativos com cargo `terapeuta` podem ser agendados.
+- Não é possível agendar no passado.
+- O terapeuta não pode ter dois atendimentos sobrepostos, nem a criança. Horários encostados (um termina às 11h e o outro começa às 11h) são permitidos.
+- O responsável vê (só leitura) os agendamentos dos próprios filhos.
+
 ## Senha
 
 - Ao cadastrar um usuário, a API não aceita senha. O usuário recebe um email com um link para definir a senha.
@@ -111,14 +121,19 @@ Toda leitura de prontuário e anotações gera um registro em `RegistroAcesso` (
 
 ```bash
 cd autismcare
-python manage.py test
+python manage.py test            # todos
+python manage.py test patients   # só um app
 ```
+
+Cada app tem o seu `tests.py`. O cenário comum (usuários, cargos, crianças e agendamento) fica em `autismcare/cenarios.py`.
 
 Os testes usam o mesmo `.env`. Durante os testes a senha é gravada com um hash rápido (MD5), só para acelerar a execução.
 
 ## Dados pessoais (LGPD)
 
 - CPF e notas médicas são criptografados no banco (Fernet). O CPF também tem um hash para unicidade.
+- O CPF é validado pelos dígitos verificadores. A API aceita `123.456.789-09` ou `12345678909` e grava só os números.
+- Na resposta da API, o CPF completo aparece só para o próprio usuário, a recepção e o coordenador. Os demais (por exemplo, o terapeuta vendo um responsável) recebem `***.***.***-09`.
 - Não é possível apagar um usuário: a exclusão direta retorna 405. Para remover dados pessoais, use `POST /api/users/{id}/anonimizar/` (somente coordenador). A conta é desativada, o e-mail e o CPF são trocados por valores fictícios e o endereço é apagado. O prontuário e os agendamentos são mantidos, porque precisam ser guardados pelo prazo legal.
 - Cada leitura de prontuário ou anotação gera um registro de acesso, consultável pelo coordenador em `/api/acessos-medicos/`.
 - Os nomes das crianças não são anonimizados, porque identificam o prontuário.

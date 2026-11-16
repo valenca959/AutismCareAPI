@@ -1,8 +1,7 @@
-import secrets
-
 from django.db import transaction
 
 from patients.models import Parent  # noqa: F401  (usado via user.parent)
+from .cpf import gerar_cpf
 from .fields import hash_cpf
 from .models import AuthenticationUser
 
@@ -12,7 +11,7 @@ TELEFONE_ANONIMO = '+5500000000000'
 
 def _cpf_aleatorio():
     while True:
-        cpf = ''.join(secrets.choice('0123456789') for _ in range(11))
+        cpf = gerar_cpf()  # válido, para o cadastro continuar editável no admin
         if not AuthenticationUser.objects.filter(cpf_hash=hash_cpf(cpf)).exists():
             return cpf
 

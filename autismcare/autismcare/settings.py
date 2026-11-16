@@ -56,6 +56,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'phonenumber_field',
     'corsheaders',
     'drf_spectacular',
@@ -181,6 +182,11 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'AUTH_HEADER_TYPES': ('Bearer',),
+    # A cada /token/refresh/ sai um refresh novo e o antigo vai para a blacklist.
+    # No logout (/token/logout/) o refresh também vai para a blacklist e não renova mais.
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
 }
 
 # Documentação da API: Swagger em /api/docs/ e ReDoc em /api/redoc/.

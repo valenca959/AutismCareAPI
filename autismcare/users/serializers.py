@@ -1,6 +1,10 @@
 from rest_framework import serializers
 from .models import AuthenticationUser, Address, Role, Employee
+from django.core.exceptions import ValidationError as DjangoValidationError
+
+from .cpf import mascarar_cpf, normalizar_cpf, validar_cpf
 from .fields import hash_cpf
+from .permissions import is_recepcao_ou_coordenador
 
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,6 +15,9 @@ class AddressSerializer(serializers.ModelSerializer):
 class AuthenticationUserSerializer(serializers.ModelSerializer):
     address = AddressSerializer(read_only=True)
     user_type = serializers.SerializerMethodField()
+    # Aceita '123.456.789-09' ou '12345678909'. Na resposta, só o próprio usuário,
+    # a recepção e o coordenador veem o CPF completo; os demais veem '***.***.***-09'.
+    cpf = serializers.CharField(max_length=14)
 
     class Meta:
         model = AuthenticationUser
@@ -24,7 +31,24 @@ class AuthenticationUserSerializer(serializers.ModelSerializer):
     def get_user_type(self, obj) -> str:
         return obj.get_user_type()
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self._pode_ver_cpf_completo(instance):
+            data['cpf'] = mascarar_cpf(instance.cpf)
+        return data
+
+    def _pode_ver_cpf_completo(self, instance):
+        request = self.context.get('request')
+        if request is None:  # sem contexto, mostra o mínimo
+            return False
+        return request.user.pk == instance.pk or is_recepcao_ou_coordenador(request.user)
+
     def validate_cpf(self, value):
+        value = normalizar_cpf(value)
+        try:
+            validar_cpf(value)
+        except DjangoValidationError as erro:
+            raise serializers.ValidationError(erro.messages)
         qs = AuthenticationUser.objects.filter(cpf_hash=hash_cpf(value))
         if self.instance is not None:
             qs = qs.exclude(pk=self.instance.pk)
